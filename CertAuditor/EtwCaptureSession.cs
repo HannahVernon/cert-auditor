@@ -4,7 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Xml;
 using System.Xml.Linq;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Session;
 
@@ -39,6 +42,8 @@ namespace CertAuditor
         private readonly object _writeLock = new object();
         private TraceEventSession _session;
         private long _eventCount;
+        private volatile bool _disposed;
+        private long _xmlParseErrors;
 
         public long EventCount => Interlocked.Read(ref _eventCount);
 
@@ -62,6 +67,32 @@ namespace CertAuditor
             {
                 _logWriter.WriteLine(CertUsageEvent.HeaderLine);
             }
+
+            // Set restrictive ACLs on new log files (Administrators + SYSTEM only)
+            if (!fileExists)
+            {
+                try
+                {
+                    var fi = new FileInfo(logFilePath);
+                    var acl = fi.GetAccessControl();
+                    acl.SetAccessRuleProtection(true, false);
+                    acl.AddAccessRule(new FileSystemAccessRule(
+                        new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                        FileSystemRights.FullControl,
+                        AccessControlType.Allow));
+                    acl.AddAccessRule(new FileSystemAccessRule(
+                        new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                        FileSystemRights.FullControl,
+                        AccessControlType.Allow));
+                    fi.SetAccessControl(acl);
+                }
+                catch
+                {
+                    ConsoleHelpers.WriteInfo(
+                        "Warning: Could not set restrictive ACLs on the log file. " +
+                        "Verify the log directory permissions manually.");
+                }
+            }
         }
 
         /// <summary>
@@ -78,6 +109,20 @@ namespace CertAuditor
                 {
                     durationCts.CancelAfter(duration.Value);
                 }
+
+                // Clean up any stale ETW session from a previous crash
+                try
+                {
+                    var stale = TraceEventSession.GetActiveSession(SessionName);
+                    if (stale != null)
+                    {
+                        ConsoleHelpers.WriteInfo(
+                            "Cleaning up stale ETW session from a previous run...");
+                        stale.Stop();
+                        stale.Dispose();
+                    }
+                }
+                catch { /* no stale session or cleanup failed — proceed anyway */ }
 
                 _session = new TraceEventSession(SessionName);
 
@@ -127,15 +172,40 @@ namespace CertAuditor
 
             lock (_writeLock)
             {
+                if (_disposed) return;
                 _logWriter.WriteLine(evt.ToLogLine());
             }
 
-            Interlocked.Increment(ref _eventCount);
+            var count = Interlocked.Increment(ref _eventCount);
 
-            Console.Error.Write($"\rEvents captured: {EventCount}");
+            if (count % 100 == 0)
+            {
+                Console.Error.Write($"\rEvents captured: {count}");
+
+                // Warn once when log file exceeds 100 MB
+                if (count == 100)
+                {
+                    // no-op: too early to check
+                }
+                else if (count % 10000 == 0)
+                {
+                    try
+                    {
+                        var size = new FileInfo(_logWriter.BaseStream is FileStream fs
+                            ? fs.Name : string.Empty).Length;
+                        if (size > 100 * 1024 * 1024)
+                        {
+                            ConsoleHelpers.WriteInfo(
+                                $"\nWarning: Log file has exceeded 100 MB ({size / (1024 * 1024)} MB). " +
+                                "Consider stopping the capture to prevent disk exhaustion.");
+                        }
+                    }
+                    catch { /* file size check is best-effort */ }
+                }
+            }
         }
 
-        private static CertUsageEvent ParseEvent(TraceEvent data)
+        private CertUsageEvent ParseEvent(TraceEvent data)
         {
             var evt = new CertUsageEvent
             {
@@ -184,11 +254,21 @@ namespace CertAuditor
         ///   - Process: EventAuxInfo ProcessName attribute
         ///   - Result: Result value attribute
         /// </summary>
-        private static void ParseCapi2Xml(string xml, CertUsageEvent evt)
+        private void ParseCapi2Xml(string xml, CertUsageEvent evt)
         {
             try
             {
-                var doc = XDocument.Parse(xml);
+                var settings = new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Prohibit,
+                    XmlResolver = null
+                };
+
+                XDocument doc;
+                using (var reader = XmlReader.Create(new StringReader(xml), settings))
+                {
+                    doc = XDocument.Load(reader);
+                }
 
                 // Extract process name from <EventAuxInfo ProcessName="..."/>
                 var auxInfo = doc.Descendants()
@@ -269,9 +349,14 @@ namespace CertAuditor
                         evt.StoreName = storeEl.Value.Trim();
                 }
             }
-            catch
+            catch (XmlException)
             {
-                // XML parsing failed — keep whatever we have
+                if (Interlocked.Increment(ref _xmlParseErrors) == 1)
+                {
+                    ConsoleHelpers.WriteInfo(
+                        "Warning: XML parsing failed for a CAPI2 event. " +
+                        "Some event fields may be incomplete.");
+                }
             }
         }
 
@@ -293,7 +378,16 @@ namespace CertAuditor
         public void Dispose()
         {
             try { _session?.Dispose(); } catch { }
+
+            lock (_writeLock) { _disposed = true; }
             try { _logWriter?.Dispose(); } catch { }
+
+            var parseErrors = Interlocked.Read(ref _xmlParseErrors);
+            if (parseErrors > 0)
+            {
+                ConsoleHelpers.WriteInfo(
+                    $"Note: {parseErrors} event(s) had XML parsing errors during capture.");
+            }
         }
     }
 }

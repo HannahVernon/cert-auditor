@@ -96,8 +96,8 @@ namespace CertAuditor
             catch (UnauthorizedAccessException)
             {
                 ConsoleHelpers.WriteError(
-                    "Access denied. An ETW session with the same name may already be running, " +
-                    "or administrator privileges are required.");
+                    "Access denied. An ETW session with the same name may already be running " +
+                    "from a previous crash. Try: logman stop CertAuditor-CAPI2 -ets");
                 return 1;
             }
             catch (Exception ex)
