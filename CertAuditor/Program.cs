@@ -63,7 +63,7 @@ namespace CertAuditor
             }
 
             // --events (optional, default: 30)
-            var eventIds = new HashSet<int> { 30 };
+            var eventIds = new HashSet<int> { 11, 30 };
             if (options.TryGetValue("--events", out var eventsStr))
             {
                 eventIds = ParseEventIds(eventsStr);
@@ -217,7 +217,7 @@ Capture Options:
   --thumbprint <list>     Filter to specific certificate thumbprint(s).
                           Comma-separated, case-insensitive.
   --events <list>         Comma-separated list of CAPI2 event IDs to capture.
-                          Default: 30
+                          Default: 11,30
 
 Summarize Options:
   --log <path>            Path to the log file to summarize (required).
@@ -239,6 +239,7 @@ Examples:
   CertAuditor.exe capture --log C:\logs\cert-audit.log --duration 1h
   CertAuditor.exe capture --log audit.log --store ""LocalMachine\My"" --duration 7d
   CertAuditor.exe capture --log audit.log --thumbprint AB12CD34EF --duration 2d
+  CertAuditor.exe capture --log audit.log --events 11,30,41,90 --duration 1h
   CertAuditor.exe summarize --log C:\logs\cert-audit.log
   CertAuditor.exe summarize --log C:\logs\cert-audit.log --format csv");
         }

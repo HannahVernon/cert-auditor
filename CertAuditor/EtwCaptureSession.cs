@@ -25,11 +25,11 @@ namespace CertAuditor
         /// </summary>
         public static readonly Dictionary<int, string> AllowedEventIds = new Dictionary<int, string>
         {
-            { 30, "BuildChain — certificate chain validation" },
-            { 40, "VerifyRevocation — revocation check (CRL/OCSP)" },
-            { 50, "X509Objects — certificate object opened from store" },
-            { 70, "RetrieveObjectByUrlWire — CRL/OCSP fetch" },
-            { 90, "AutoEnrollment — auto-enrollment activity" }
+            { 11, "BuildChain — certificate chain validation (most detailed)" },
+            { 30, "VerifyChainPolicy — chain policy verification" },
+            { 41, "VerifyRevocation — revocation check result (CRL/OCSP)" },
+            { 81, "VerifyTrust — code signing trust verification" },
+            { 90, "X509Objects — certificate objects loaded from store" }
         };
 
         private readonly HashSet<int> _eventIds;
@@ -142,137 +142,136 @@ namespace CertAuditor
                 Timestamp = data.TimeStamp,
                 EventId = (int)data.ID,
                 ProcessId = data.ProcessID,
-                ProcessName = GetProcessName(data.ProcessID),
-                Result = 0
+                ProcessName = string.Empty,
+                Result = 0,
+                Thumbprint = string.Empty,
+                Subject = string.Empty,
+                Issuer = string.Empty,
+                StoreName = string.Empty
             };
 
-            // Try to extract certificate details from the event's XML payload
-            try
+            // CAPI2 events use a single "EventWriteData" payload field containing XML
+            string xmlPayload = null;
+            for (int i = 0; i < data.PayloadNames.Length; i++)
             {
-                var xmlPayload = data.ToString();
-                if (!string.IsNullOrEmpty(xmlPayload))
+                if (string.Equals(data.PayloadNames[i], "EventWriteData", StringComparison.OrdinalIgnoreCase))
                 {
-                    ExtractFromPayload(data, evt);
+                    var val = data.PayloadValue(i);
+                    if (val != null)
+                        xmlPayload = val.ToString();
+                    break;
                 }
             }
-            catch
+
+            if (!string.IsNullOrEmpty(xmlPayload))
             {
-                // If XML parsing fails, capture what we can
+                ParseCapi2Xml(xmlPayload, evt);
             }
 
-            if (string.IsNullOrEmpty(evt.Thumbprint))
-                evt.Thumbprint = string.Empty;
-            if (string.IsNullOrEmpty(evt.Subject))
-                evt.Subject = string.Empty;
-            if (string.IsNullOrEmpty(evt.Issuer))
-                evt.Issuer = string.Empty;
-            if (string.IsNullOrEmpty(evt.StoreName))
-                evt.StoreName = string.Empty;
+            // Fall back to process lookup if not found in XML
+            if (string.IsNullOrEmpty(evt.ProcessName))
+                evt.ProcessName = GetProcessName(data.ProcessID);
 
             return evt;
         }
 
-        private static void ExtractFromPayload(TraceEvent data, CertUsageEvent evt)
+        /// <summary>
+        /// Parses the CAPI2 EventWriteData XML to extract certificate details.
+        /// The XML structure varies by event ID but follows common patterns:
+        ///   - Certificate thumbprint: fileRef attribute (e.g., "THUMB.cer")
+        ///   - Subject: subjectName attribute on Certificate elements
+        ///   - Issuer: Issuer child element (with CN sub-element) or IssuerCertificate element
+        ///   - Process: EventAuxInfo ProcessName attribute
+        ///   - Result: Result value attribute
+        /// </summary>
+        private static void ParseCapi2Xml(string xml, CertUsageEvent evt)
         {
-            // CAPI2 events store details in named payload fields or XML.
-            // The exact field names depend on the event ID.
-            // We attempt multiple extraction strategies.
-
-            for (int i = 0; i < data.PayloadNames.Length; i++)
-            {
-                var name = data.PayloadNames[i];
-                var value = data.PayloadValue(i);
-                if (value == null) continue;
-
-                var strValue = value.ToString();
-
-                switch (name.ToLowerInvariant())
-                {
-                    case "certificate":
-                    case "certificatedetails":
-                    case "userdata":
-                        TryParseXmlFragment(strValue, evt);
-                        break;
-                    case "thumbprint":
-                    case "sha1hash":
-                        evt.Thumbprint = strValue;
-                        break;
-                    case "subjectname":
-                    case "subject":
-                        evt.Subject = strValue;
-                        break;
-                    case "issuername":
-                    case "issuer":
-                        evt.Issuer = strValue;
-                        break;
-                    case "storename":
-                    case "store":
-                        evt.StoreName = strValue;
-                        break;
-                    case "hresult":
-                    case "result":
-                    case "status":
-                        if (int.TryParse(strValue, out var hr))
-                            evt.Result = hr;
-                        break;
-                }
-            }
-
-            // Fallback: try parsing the full event string as XML
-            if (string.IsNullOrEmpty(evt.Thumbprint))
-            {
-                try
-                {
-                    TryParseXmlFragment(data.ToString(), evt);
-                }
-                catch { /* not XML, that's fine */ }
-            }
-        }
-
-        private static void TryParseXmlFragment(string xml, CertUsageEvent evt)
-        {
-            if (string.IsNullOrEmpty(xml) || !xml.Contains("<"))
-                return;
-
             try
             {
                 var doc = XDocument.Parse(xml);
-                var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
 
-                var thumbEl = doc.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName.Equals("sha1Hash", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("thumbPrint", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("thumbprint", StringComparison.OrdinalIgnoreCase));
-                if (thumbEl != null && string.IsNullOrEmpty(evt.Thumbprint))
-                    evt.Thumbprint = thumbEl.Value.Trim().Replace(" ", "");
+                // Extract process name from <EventAuxInfo ProcessName="..."/>
+                var auxInfo = doc.Descendants()
+                    .FirstOrDefault(e => e.Name.LocalName == "EventAuxInfo");
+                if (auxInfo != null)
+                {
+                    var procAttr = auxInfo.Attribute("ProcessName");
+                    if (procAttr != null)
+                        evt.ProcessName = procAttr.Value;
+                }
 
-                var subjectEl = doc.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName.Equals("subjectName", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("subject", StringComparison.OrdinalIgnoreCase));
-                if (subjectEl != null && string.IsNullOrEmpty(evt.Subject))
-                    evt.Subject = subjectEl.Value.Trim();
-
-                var issuerEl = doc.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName.Equals("issuerName", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("issuer", StringComparison.OrdinalIgnoreCase));
-                if (issuerEl != null && string.IsNullOrEmpty(evt.Issuer))
-                    evt.Issuer = issuerEl.Value.Trim();
-
-                var storeEl = doc.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName.Equals("storeLocation", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("storeName", StringComparison.OrdinalIgnoreCase));
-                if (storeEl != null && string.IsNullOrEmpty(evt.StoreName))
-                    evt.StoreName = storeEl.Value.Trim();
-
+                // Extract result from <Result value="..."/>
                 var resultEl = doc.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName.Equals("hResult", StringComparison.OrdinalIgnoreCase)
-                                      || e.Name.LocalName.Equals("result", StringComparison.OrdinalIgnoreCase));
-                if (resultEl != null && int.TryParse(resultEl.Value.Trim(), out var hr))
-                    evt.Result = hr;
+                    .FirstOrDefault(e => e.Name.LocalName == "Result");
+                if (resultEl != null)
+                {
+                    var valAttr = resultEl.Attribute("value");
+                    if (valAttr != null && int.TryParse(valAttr.Value, out var hr))
+                        evt.Result = hr;
+                }
+
+                // Extract certificate details from <Certificate fileRef="THUMB.cer" subjectName="..."/>
+                // Take the first Certificate element (the leaf/end-entity cert)
+                var certEl = doc.Descendants()
+                    .FirstOrDefault(e => e.Name.LocalName == "Certificate");
+                if (certEl != null)
+                {
+                    var fileRef = certEl.Attribute("fileRef");
+                    if (fileRef != null)
+                    {
+                        // fileRef is "THUMBPRINT.cer" — strip the extension
+                        var thumbprint = fileRef.Value;
+                        if (thumbprint.EndsWith(".cer", StringComparison.OrdinalIgnoreCase))
+                            thumbprint = thumbprint.Substring(0, thumbprint.Length - 4);
+                        evt.Thumbprint = thumbprint.ToUpperInvariant();
+                    }
+
+                    var subjectName = certEl.Attribute("subjectName");
+                    if (subjectName != null)
+                        evt.Subject = subjectName.Value;
+
+                    // Issuer: look for <Issuer><CN>...</CN></Issuer> child
+                    var issuerEl = certEl.Element("Issuer");
+                    if (issuerEl != null)
+                    {
+                        var cn = issuerEl.Element("CN");
+                        if (cn != null)
+                            evt.Issuer = cn.Value;
+                        else
+                            evt.Issuer = string.Join(", ",
+                                issuerEl.Elements().Select(e => e.Name.LocalName + "=" + e.Value));
+                    }
+                }
+
+                // If no issuer from the Certificate element, try <IssuerCertificate subjectName="..."/>
+                if (string.IsNullOrEmpty(evt.Issuer))
+                {
+                    var issuerCert = doc.Descendants()
+                        .FirstOrDefault(e => e.Name.LocalName == "IssuerCertificate");
+                    if (issuerCert != null)
+                    {
+                        var issuerSubject = issuerCert.Attribute("subjectName");
+                        if (issuerSubject != null)
+                            evt.Issuer = issuerSubject.Value;
+                    }
+                }
+
+                // Extract store name from <CertificateStore> or store-related elements
+                var storeEl = doc.Descendants()
+                    .FirstOrDefault(e => e.Name.LocalName == "CertificateStore"
+                                     || e.Name.LocalName == "StoreLocation");
+                if (storeEl != null)
+                {
+                    var storeName = storeEl.Attribute("name") ?? storeEl.Attribute("storeName");
+                    if (storeName != null)
+                        evt.StoreName = storeName.Value;
+                    else if (!string.IsNullOrEmpty(storeEl.Value))
+                        evt.StoreName = storeEl.Value.Trim();
+                }
             }
             catch
             {
-                // Not valid XML — skip
+                // XML parsing failed — keep whatever we have
             }
         }
 

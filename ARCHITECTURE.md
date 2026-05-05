@@ -100,12 +100,15 @@ LogParser.Summarize()
 
 ### Event Payload Parsing
 
-CAPI2 events contain certificate details in XML fragments within the event payload. The `EtwCaptureSession` class uses two extraction strategies:
+CAPI2 events use a single payload field called `EventWriteData` containing an XML string. The XML structure varies by event ID but follows common patterns:
 
-1. **Named payload fields** — iterates `data.PayloadNames` looking for known field names (`thumbprint`, `subject`, `issuer`, `storeName`, etc.)
-2. **XML fragment parsing** — falls back to `XDocument.Parse()` on string payload values, searching for elements by local name (case-insensitive)
+- **Thumbprint**: `fileRef` attribute on `<Certificate>` elements (format: `THUMBPRINT.cer`)
+- **Subject**: `subjectName` attribute on `<Certificate>` elements
+- **Issuer**: `<Issuer><CN>...</CN></Issuer>` child elements, or `<IssuerCertificate subjectName="..."/>` elements
+- **Process**: `<EventAuxInfo ProcessName="..."/>` attribute
+- **Result**: `<Result value="..."/>` attribute
 
-This dual approach handles variations across different CAPI2 event IDs and Windows versions.
+The parser extracts the first `<Certificate>` element found (the leaf/end-entity cert) from the XML payload.
 
 ## Dependencies
 

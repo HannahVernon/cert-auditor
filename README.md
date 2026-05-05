@@ -23,10 +23,10 @@ CertAuditor.exe capture --log C:\logs\cert-audit.log --duration 1h
 CertAuditor.exe capture --log C:\logs\cert-audit.log --thumbprint AB12CD34EF56 --duration 7d
 ```
 
-### Capture only LocalMachine\My store events
+### Allowed Event IDs
 
 ```
-CertAuditor.exe capture --log C:\logs\cert-audit.log --store "LocalMachine\My" --duration 2d
+CertAuditor.exe capture --log audit.log --events 11,30,41,90 --duration 1h
 ```
 
 ### View a summary of captured events
@@ -53,7 +53,7 @@ Option | Description
 `--duration <value>` | Auto-stop after the specified duration. Format: `<number><unit>` where unit is `s` (seconds), `m` (minutes), `h` (hours), or `d` (days). Examples: `30s`, `10m`, `1h`, `2d`.
 `--store <name>` | Filter to a specific certificate store. Examples: `LocalMachine\My`, `CurrentUser\Root`.
 `--thumbprint <list>` | Filter to specific certificate thumbprint(s). Comma-separated, case-insensitive.
-`--events <list>` | Comma-separated list of CAPI2 event IDs to capture. Default: `30`.
+`--events <list>` | Comma-separated list of CAPI2 event IDs to capture. Default: `11,30`.
 
 ### `summarize`
 
@@ -68,13 +68,13 @@ Option | Description
 
 ID | Name | Description
 ---|------|------------
-30 | BuildChain | Certificate chain validation — strongest signal of "cert in use"
-40 | VerifyRevocation | Revocation check against CRL/OCSP
-50 | X509Objects | Certificate object opened from store
-70 | RetrieveObjectByUrlWire | CRL/OCSP fetch — indicates active validation
-90 | AutoEnrollment | Auto-enrollment activity
+11 | BuildChain | Certificate chain validation — most detailed, includes full chain
+30 | VerifyChainPolicy | Chain policy verification (Authenticode, Microsoft Root, etc.)
+41 | VerifyRevocation | Revocation check result (CRL/OCSP) — includes cert and issuer
+81 | VerifyTrust | Code signing trust verification
+90 | X509Objects | Certificate objects loaded from store — full cert metadata
 
-Event ID 30 (BuildChain) is the default and is the most reliable indicator that a certificate is being actively used for TLS, code signing, or other cryptographic operations.
+Event IDs 11 and 30 are the defaults and are the most reliable indicators that a certificate is being actively used for TLS, code signing, or other cryptographic operations.
 
 ## Log File Format
 
