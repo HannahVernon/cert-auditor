@@ -1,0 +1,19 @@
+## Build output
+**/bin/
+**/obj/
+
+## NuGet
+packages/
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+
+## Test logs
+*.log
+
+## OS
+Thumbs.db
+Desktop.ini
+*.slnx
