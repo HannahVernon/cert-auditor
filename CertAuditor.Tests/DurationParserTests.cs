@@ -87,6 +87,8 @@ namespace CertAuditor.Tests
         [InlineData("-5m")]
         [InlineData("1.5h")]
         [InlineData("10 minutes")]
+        [InlineData("999999999999d")]
+        [InlineData("999999999999h")]
         public void TryParse_InvalidInput_ReturnsNull(string input)
         {
             var result = DurationParser.TryParse(input);

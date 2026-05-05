@@ -59,17 +59,18 @@ namespace CertAuditor
                 ? new HashSet<string>(thumbprints, StringComparer.OrdinalIgnoreCase)
                 : null;
 
-            var fileExists = File.Exists(logFilePath);
-            _logWriter = new StreamWriter(logFilePath, append: true, encoding: System.Text.Encoding.UTF8);
+            var isNewFile = !File.Exists(logFilePath);
+            var utf8NoBom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            _logWriter = new StreamWriter(logFilePath, append: true, encoding: utf8NoBom);
             _logWriter.AutoFlush = true;
 
-            if (!fileExists || new FileInfo(logFilePath).Length == 0)
+            if (_logWriter.BaseStream.Length == 0)
             {
                 _logWriter.WriteLine(CertUsageEvent.HeaderLine);
             }
 
             // Set restrictive ACLs on new log files (Administrators + SYSTEM only)
-            if (!fileExists)
+            if (isNewFile)
             {
                 try
                 {
@@ -379,8 +380,11 @@ namespace CertAuditor
         {
             try { _session?.Dispose(); } catch { }
 
-            lock (_writeLock) { _disposed = true; }
-            try { _logWriter?.Dispose(); } catch { }
+            lock (_writeLock)
+            {
+                _disposed = true;
+                try { _logWriter?.Dispose(); } catch { }
+            }
 
             var parseErrors = Interlocked.Read(ref _xmlParseErrors);
             if (parseErrors > 0)

@@ -28,13 +28,20 @@ namespace CertAuditor
                 return null;
 
             var unit = match.Groups[2].Value.ToLowerInvariant();
-            switch (unit)
+            try
             {
-                case "s": return TimeSpan.FromSeconds(value);
-                case "m": return TimeSpan.FromMinutes(value);
-                case "h": return TimeSpan.FromHours(value);
-                case "d": return TimeSpan.FromDays(value);
-                default: return null;
+                switch (unit)
+                {
+                    case "s": return TimeSpan.FromSeconds(value);
+                    case "m": return TimeSpan.FromMinutes(value);
+                    case "h": return TimeSpan.FromHours(value);
+                    case "d": return TimeSpan.FromDays(value);
+                    default: return null;
+                }
+            }
+            catch (OverflowException)
+            {
+                return null;
             }
         }
 

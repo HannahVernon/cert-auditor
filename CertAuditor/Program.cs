@@ -62,7 +62,7 @@ namespace CertAuditor
                 }
             }
 
-            // --events (optional, default: 30)
+            // --events (optional, default: 11,30)
             var eventIds = new HashSet<int> { 11, 30 };
             if (options.TryGetValue("--events", out var eventsStr))
             {
