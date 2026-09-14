@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/hannahvernon/cert-auditor/blob/main/README.md
+    about: Read the README for usage, options, and workflow guidance before filing an issue.

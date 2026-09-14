@@ -1,0 +1,56 @@
+name: Bug Report
+description: Report a problem with CertAuditor
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the fields below as completely as possible.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact command-line invocation and steps that trigger the issue.
+      placeholder: |
+        1. Run `CertAuditor.exe capture --log C:\logs\audit.log --duration 1h`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include any error messages or relevant log output.
+    validations:
+      required: false
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: Windows version/build (e.g., Windows Server 2019, Windows 11 23H2)
+      placeholder: Windows Server 2019
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: CertAuditor Version / Commit
+      description: Release tag, or commit hash if built from source
+      placeholder: v1.0.0 or commit abc1234
+    validations:
+      required: true

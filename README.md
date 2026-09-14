@@ -122,6 +122,14 @@ dotnet build CertAuditor.sln --configuration Release
 
 Output: `CertAuditor\bin\Release\net48\CertAuditor.exe`
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build/test instructions, branch model, and coding standards. Please review the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+
+## Reporting Security Issues
+
+See [SECURITY.md](SECURITY.md) for how to privately report a vulnerability.
+
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE). Third-party dependency licenses are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
