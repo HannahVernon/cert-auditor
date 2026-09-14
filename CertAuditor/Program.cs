@@ -197,7 +197,7 @@ namespace CertAuditor
 
         private static void PrintUsage()
         {
-            Console.WriteLine(@"CertAuditor — Windows Certificate Usage Auditor
+            Console.WriteLine(@"CertAuditor - Windows Certificate Usage Auditor
 
 Usage:
   CertAuditor.exe capture --log <path> [options]

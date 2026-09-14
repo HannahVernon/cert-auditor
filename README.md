@@ -2,7 +2,7 @@
 
 A Windows command-line tool that audits certificate usage by capturing real-time events from the CAPI2 ETW provider. It answers the question: **"Can I safely remove this certificate from the store?"**
 
-By monitoring which certificates are actively accessed by applications and services, CertAuditor identifies unused certificates that can be safely removed — and flags those still in use.
+By monitoring which certificates are actively accessed by applications and services, CertAuditor identifies unused certificates that can be safely removed - and flags those still in use.
 
 ## Requirements
 
@@ -173,11 +173,11 @@ Option | Description
 
 ID | Name | Description
 ---|------|------------
-11 | BuildChain | Certificate chain validation — most detailed, includes full chain
+11 | BuildChain | Certificate chain validation - most detailed, includes full chain
 30 | VerifyChainPolicy | Chain policy verification (Authenticode, Microsoft Root, etc.)
-41 | VerifyRevocation | Revocation check result (CRL/OCSP) — includes cert and issuer
+41 | VerifyRevocation | Revocation check result (CRL/OCSP) - includes cert and issuer
 81 | VerifyTrust | Code signing trust verification
-90 | X509Objects | Certificate objects loaded from store — full cert metadata
+90 | X509Objects | Certificate objects loaded from store - full cert metadata
 
 Event IDs 11 and 30 are the defaults and are the most reliable indicators that a certificate is being actively used for TLS, code signing, or other cryptographic operations.
 
@@ -193,16 +193,16 @@ Tab-delimited was chosen over CSV because certificate subjects can contain comma
 
 ## Typical Workflow
 
-1. **Identify candidates** — List certificates in `LocalMachine\My` that may be unused (expired, unknown purpose, etc.)
-2. **Capture** — Run CertAuditor for a representative period (e.g., 7 days) to capture all certificate usage
-3. **Summarize** — Review the summary to see which certificates were accessed and by which processes
-4. **Decide** — Certificates that appear in the log are in active use. Certificates absent from the log for the entire capture period are candidates for removal.
+1. **Identify candidates** - List certificates in `LocalMachine\My` that may be unused (expired, unknown purpose, etc.)
+2. **Capture** - Run CertAuditor for a representative period (e.g., 7 days) to capture all certificate usage
+3. **Summarize** - Review the summary to see which certificates were accessed and by which processes
+4. **Decide** - Certificates that appear in the log are in active use. Certificates absent from the log for the entire capture period are candidates for removal.
 
 ### Recommended capture duration
 
 Duration | Good for
 ---------|----------
-1h | Quick smoke test — are any certs being used right now?
+1h | Quick smoke test - are any certs being used right now?
 1d | Catches daily scheduled tasks and services
 7d | Catches weekly jobs, backups, and periodic renewals
 30d | Comprehensive audit before certificate store cleanup

@@ -59,7 +59,7 @@ namespace CertAuditor
                         continue;
                     }
 
-                    // Skip events with no thumbprint — can't aggregate without an identifier
+                    // Skip events with no thumbprint - can't aggregate without an identifier
                     if (string.IsNullOrEmpty(evt.Thumbprint))
                         continue;
 

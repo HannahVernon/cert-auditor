@@ -8,17 +8,17 @@ CertAuditor is a .NET Framework 4.8 console application that subscribes to Windo
 
 ```
 C:\Dev\cert-auditor\
-├── CertAuditor.sln                    — Visual Studio solution file
-├── README.md                          — User-facing documentation
-├── ARCHITECTURE.md                    — This file
+├── CertAuditor.sln - Visual Studio solution file
+├── README.md - User-facing documentation
+├── ARCHITECTURE.md - This file
 └── CertAuditor\
-    ├── CertAuditor.csproj             — SDK-style project targeting net48
-    ├── Program.cs                     — Entry point, CLI parsing, verb dispatch
-    ├── EtwCaptureSession.cs           — CAPI2 ETW subscription and event parsing
-    ├── LogParser.cs                   — Log file reader and summary aggregation
-    ├── CertUsageEvent.cs              — POCO for a single certificate-usage event
-    ├── DurationParser.cs              — Parses shorthand durations (10m, 1h, 2d)
-    └── ConsoleHelpers.cs              — Ctrl+C handling, elevation check, console output
+    ├── CertAuditor.csproj - SDK-style project targeting net48
+    ├── Program.cs - Entry point, CLI parsing, verb dispatch
+    ├── EtwCaptureSession.cs - CAPI2 ETW subscription and event parsing
+    ├── LogParser.cs - Log file reader and summary aggregation
+    ├── CertUsageEvent.cs - POCO for a single certificate-usage event
+    ├── DurationParser.cs - Parses shorthand durations (10m, 1h, 2d)
+    └── ConsoleHelpers.cs - Ctrl+C handling, elevation check, console output
 ```
 
 ## Component Responsibilities
@@ -41,9 +41,9 @@ Responsibilities:
 ### CertUsageEvent.cs
 
 Data transfer object representing one captured event. Provides:
-- `ToLogLine()` — serializes to tab-delimited format
-- `Parse(string)` — deserializes from tab-delimited format
-- `SanitizeField(string)` — strips tabs/newlines from field values to prevent log corruption
+- `ToLogLine()` - serializes to tab-delimited format
+- `Parse(string)` - deserializes from tab-delimited format
+- `SanitizeField(string)` - strips tabs/newlines from field values to prevent log corruption
 
 ### LogParser.cs
 
@@ -94,7 +94,7 @@ LogParser.Summarize()
 ## ETW Details
 
 - **Provider:** Microsoft-Windows-CAPI2 (`{5BBCA4A8-B209-48DC-A8C7-B23D3E5216FB}`)
-- **Provider type:** Manifest-based (confirmed — supports up to 8 concurrent ETW sessions)
+- **Provider type:** Manifest-based (confirmed - supports up to 8 concurrent ETW sessions)
 - **Session name:** `CertAuditor-CAPI2`
 - **Manifest location:** `%SystemRoot%\System32\crypt32.dll`
 
