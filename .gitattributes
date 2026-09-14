@@ -1,0 +1,40 @@
+# Normalize all text files in the repo. Git stores LF internally and applies
+# the per-path eol rules below on checkout.
+* text=auto
+
+# --- Windows-centric / Visual Studio tooling: force CRLF ---
+# These files are produced or consumed by Windows tools that expect CRLF and
+# will rewrite the whole file if the endings don't match.
+*.sln       text eol=crlf
+*.csproj    text eol=crlf
+*.vbproj    text eol=crlf
+*.props     text eol=crlf
+*.targets   text eol=crlf
+*.config    text eol=crlf
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.psd1      text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# --- This repo's established convention is CRLF (Windows-authored). ---
+# Force CRLF explicitly so `git add` does not silently renormalize files to
+# LF, which would otherwise produce a whole-file diff on every text file.
+*.cs        text eol=crlf
+*.json      text eol=crlf
+*.xml       text eol=crlf
+*.md        text eol=crlf
+*.yml       text eol=crlf
+*.yaml      text eol=crlf
+
+# --- Binary files: never touch ---
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.dll       binary
+*.exe       binary
+*.snk       binary
