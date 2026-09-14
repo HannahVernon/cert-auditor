@@ -163,7 +163,11 @@ namespace CertAuditor
             if (evt == null)
                 return;
 
+            // Only apply the store filter when the event actually reports a store name.
+            // Many CAPI2 events (especially chain validation) omit store info from their XML,
+            // so we let those through rather than silently dropping them.
             if (!string.IsNullOrEmpty(_storeFilter) &&
+                !string.IsNullOrEmpty(evt.StoreName) &&
                 !string.Equals(evt.StoreName, _storeFilter, StringComparison.OrdinalIgnoreCase))
                 return;
 
