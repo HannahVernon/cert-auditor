@@ -28,11 +28,11 @@ namespace CertAuditor
         /// </summary>
         public static readonly Dictionary<int, string> AllowedEventIds = new Dictionary<int, string>
         {
-            { 11, "BuildChain — certificate chain validation (most detailed)" },
-            { 30, "VerifyChainPolicy — chain policy verification" },
-            { 41, "VerifyRevocation — revocation check result (CRL/OCSP)" },
-            { 81, "VerifyTrust — code signing trust verification" },
-            { 90, "X509Objects — certificate objects loaded from store" }
+            { 11, "BuildChain - certificate chain validation (most detailed)" },
+            { 30, "VerifyChainPolicy - chain policy verification" },
+            { 41, "VerifyRevocation - revocation check result (CRL/OCSP)" },
+            { 81, "VerifyTrust - code signing trust verification" },
+            { 90, "X509Objects - certificate objects loaded from store" }
         };
 
         private readonly HashSet<int> _eventIds;
@@ -123,7 +123,7 @@ namespace CertAuditor
                         stale.Dispose();
                     }
                 }
-                catch { /* no stale session or cleanup failed — proceed anyway */ }
+                catch { /* no stale session or cleanup failed - proceed anyway */ }
 
                 _session = new TraceEventSession(SessionName);
 
@@ -304,7 +304,7 @@ namespace CertAuditor
                     var fileRef = certEl.Attribute("fileRef");
                     if (fileRef != null)
                     {
-                        // fileRef is "THUMBPRINT.cer" — strip the extension
+                        // fileRef is "THUMBPRINT.cer" - strip the extension
                         var thumbprint = fileRef.Value;
                         if (thumbprint.EndsWith(".cer", StringComparison.OrdinalIgnoreCase))
                             thumbprint = thumbprint.Substring(0, thumbprint.Length - 4);
