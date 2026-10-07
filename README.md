@@ -100,7 +100,9 @@ this step **must** be run from an **administrator** command prompt:
    ```
 4. Let it run in the background (see [Typical Workflow](#typical-workflow)
    below for choosing a duration). When it finishes (or after pressing
-   Ctrl+C), summarize the results:
+   Ctrl+C), CertAuditor prints a table of every certificate it saw and how
+   many times, right there in the console - no separate step needed. You
+   can also re-run the summary at any time from the saved log file:
    ```
    CertAuditor.exe summarize --log C:\logs\cert-audit.log
    ```
@@ -150,7 +152,7 @@ CertAuditor.exe summarize --log C:\logs\cert-audit.log --format csv
 
 ### `capture`
 
-Starts a real-time ETW session subscribed to the CAPI2 provider. Writes one event per line to the log file in append mode. Runs until Ctrl+C is pressed or the optional `--duration` elapses.
+Starts a real-time ETW session subscribed to the CAPI2 provider. Writes one event per line to the log file in append mode. Runs until Ctrl+C is pressed or the optional `--duration` elapses. When the run ends, prints a table of every certificate observed - thumbprint, subject, validity period (`Valid From`/`Valid To`), and how many matching events were seen for it. Validity dates are looked up from the Windows certificate stores by thumbprint (checking the `--store` filter first, if one was given, then a list of common stores); if a certificate can no longer be found in any store, its dates show as `N/A`.
 
 Option | Description
 -------|------------

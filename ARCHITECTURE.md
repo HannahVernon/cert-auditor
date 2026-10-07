@@ -17,6 +17,9 @@ C:\Dev\cert-auditor\
     ├── EtwCaptureSession.cs - CAPI2 ETW subscription and event parsing
     ├── LogParser.cs - Log file reader and summary aggregation
     ├── CertUsageEvent.cs - POCO for a single certificate-usage event
+    ├── SeenCertificate.cs - POCO for a certificate seen during a capture run (thumbprint/subject/count)
+    ├── CertificateStoreLookup.cs - Looks up a certificate's validity period from the Windows certificate stores by thumbprint
+    ├── SeenCertificateReport.cs - Prints the end-of-run "certificates seen" table
     ├── DurationParser.cs - Parses shorthand durations (10m, 1h, 2d)
     └── ConsoleHelpers.cs - Ctrl+C handling, elevation check, console output
 ```
@@ -36,7 +39,9 @@ Responsibilities:
 - Filters events by event ID, store name, and thumbprint
 - Parses event payloads (XML fragments) to extract certificate details
 - Writes `CertUsageEvent` records to the log file in append mode
+- Tracks a running tally of distinct certificates seen (by thumbprint), for the end-of-run summary
 - Handles graceful shutdown via cancellation token
+- After the run ends (Ctrl+C or `--duration` elapses), prints a "certificates seen" table via `SeenCertificateReport`
 
 ### CertUsageEvent.cs
 
@@ -44,6 +49,18 @@ Data transfer object representing one captured event. Provides:
 - `ToLogLine()` - serializes to tab-delimited format
 - `Parse(string)` - deserializes from tab-delimited format
 - `SanitizeField(string)` - strips tabs/newlines from field values to prevent log corruption
+
+### SeenCertificate.cs
+
+Lightweight POCO tracked in memory during a capture run: `Thumbprint`, `Subject`, and `Count` (how many matching events were seen for that thumbprint). Distinct from `LogParser.CertSummary`, which is derived later from the saved log file and carries richer fields (issuer, first/last seen, processes).
+
+### CertificateStoreLookup.cs
+
+Looks up a certificate's validity period (`NotBefore`/`NotAfter`) by thumbprint. CAPI2 ETW events don't carry validity dates in their payload, so this re-reads the actual certificate from wherever it's installed. Checks the `--store` filter first (if one was given), then falls back to a list of commonly used stores (`LocalMachine\My`, `LocalMachine\Root`, etc.). Returns `null` if the certificate can no longer be found in any store searched (e.g., it was removed after being observed).
+
+### SeenCertificateReport.cs
+
+Prints the table of certificates seen during a capture run (thumbprint, subject, valid from/to, count), ordered by count descending. The validity lookup is an injectable delegate (defaulting to `CertificateStoreLookup.TryGetValidity`) so the table-formatting logic can be unit tested without depending on real certificate stores.
 
 ### LogParser.cs
 
@@ -76,7 +93,13 @@ EtwCaptureSession.OnEvent()
   ├── Parse XML payload → CertUsageEvent
   ├── Filter by --store (if specified)
   ├── Filter by --thumbprint (if specified)
-  └── Write CertUsageEvent.ToLogLine() → log file
+  ├── Write CertUsageEvent.ToLogLine() → log file
+  └── Tally into in-memory SeenCertificate dictionary (by thumbprint)
+        │
+        ▼  (on Ctrl+C or --duration elapsed)
+SeenCertificateReport.WriteTable()
+  ├── CertificateStoreLookup.TryGetValidity() per thumbprint
+  └── Print thumbprint/subject/valid-from/valid-to/count table → stdout
 ```
 
 ### Summarize Mode

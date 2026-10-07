@@ -31,6 +31,27 @@ namespace CertAuditor.Tests
             Assert.False(EtwCaptureSession.AllowedEventIds.ContainsKey(invalidId));
         }
 
+        [Fact]
+        public void GetSeenCertificates_BeforeAnyEvents_ReturnsEmpty()
+        {
+            var logPath = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(),
+                $"certauditor-seen-{Guid.NewGuid():N}.log");
+
+            try
+            {
+                using (var session = new EtwCaptureSession(logPath, new HashSet<int> { 11, 30 }, null, null))
+                {
+                    Assert.Empty(session.GetSeenCertificates());
+                }
+            }
+            finally
+            {
+                try { System.IO.File.Delete(logPath); }
+                catch { }
+            }
+        }
+
         /// <summary>
         /// Integration test: verifies an ETW session can start and stop cleanly.
         /// Requires administrator privileges.

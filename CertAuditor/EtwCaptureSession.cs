@@ -40,12 +40,29 @@ namespace CertAuditor
         private readonly HashSet<string> _thumbprintFilter;
         private readonly StreamWriter _logWriter;
         private readonly object _writeLock = new object();
+        private readonly Dictionary<string, SeenCertificate> _seenCertificates =
+            new Dictionary<string, SeenCertificate>(StringComparer.OrdinalIgnoreCase);
         private TraceEventSession _session;
         private long _eventCount;
         private volatile bool _disposed;
         private long _xmlParseErrors;
 
         public long EventCount => Interlocked.Read(ref _eventCount);
+
+        /// <summary>
+        /// Returns a snapshot of the distinct certificates observed so far during
+        /// this capture, ordered by how many matching events were seen for each.
+        /// </summary>
+        public IReadOnlyList<SeenCertificate> GetSeenCertificates()
+        {
+            lock (_writeLock)
+            {
+                return _seenCertificates.Values
+                    .Select(c => new SeenCertificate { Thumbprint = c.Thumbprint, Subject = c.Subject, Count = c.Count })
+                    .OrderByDescending(c => c.Count)
+                    .ToList();
+            }
+        }
 
         public EtwCaptureSession(
             string logFilePath,
@@ -152,6 +169,10 @@ namespace CertAuditor
 
             ConsoleHelpers.WriteInfo(string.Empty);
             ConsoleHelpers.WriteInfo($"Capture complete. {EventCount} event(s) written.");
+
+            ConsoleHelpers.WriteInfo(string.Empty);
+            ConsoleHelpers.WriteInfo("Certificates seen during this run:");
+            SeenCertificateReport.WriteTable(GetSeenCertificates(), _storeFilter, Console.Out);
         }
 
         private void OnEvent(TraceEvent data)
@@ -179,6 +200,7 @@ namespace CertAuditor
             {
                 if (_disposed) return;
                 _logWriter.WriteLine(evt.ToLogLine());
+                RecordSeenCertificate(evt);
             }
 
             var count = Interlocked.Increment(ref _eventCount);
@@ -208,6 +230,30 @@ namespace CertAuditor
                     catch { /* file size check is best-effort */ }
                 }
             }
+        }
+
+        /// <summary>
+        /// Updates the in-memory seen-certificate tally used for the end-of-run
+        /// summary. Must be called while holding <see cref="_writeLock"/>.
+        /// Events with no thumbprint can't be aggregated and are skipped, same
+        /// as <see cref="LogParser"/> does for the log-file summary.
+        /// </summary>
+        private void RecordSeenCertificate(CertUsageEvent evt)
+        {
+            if (string.IsNullOrEmpty(evt.Thumbprint))
+                return;
+
+            if (!_seenCertificates.TryGetValue(evt.Thumbprint, out var seen))
+            {
+                seen = new SeenCertificate { Thumbprint = evt.Thumbprint, Subject = evt.Subject, Count = 0 };
+                _seenCertificates[evt.Thumbprint] = seen;
+            }
+
+            seen.Count++;
+
+            // Use the most recent non-empty subject.
+            if (!string.IsNullOrEmpty(evt.Subject))
+                seen.Subject = evt.Subject;
         }
 
         private CertUsageEvent ParseEvent(TraceEvent data)
